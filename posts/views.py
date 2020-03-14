@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import generics
@@ -8,9 +9,11 @@ from rest_framework.response import Response
 from rest_framework.status import HTTP_201_CREATED, HTTP_400_BAD_REQUEST, HTTP_204_NO_CONTENT
 from rest_framework.views import APIView
 
-from .models import Post
+from .models import Post, Comment
 from .permissions import IsOwnerPermission
-from .serializers import PostSerializer
+from .serializers import PostSerializer, OwnerSerializer, CommentSerializer
+
+User = get_user_model()
 
 
 class PostView(APIView):
@@ -114,3 +117,13 @@ class PostDestroyView(generics.DestroyAPIView):
     permission_classes = (IsAuthenticated, IsOwnerPermission)
     queryset = Post.objects.all()
     serializer_class = PostSerializer
+
+
+class OwnerDetailView(generics.RetrieveAPIView):
+    queryset = User.objects.all()
+    serializer_class = OwnerSerializer
+
+
+class CommentDetailView(generics.RetrieveAPIView):
+    queryset = Comment.objects.all()
+    serializer_class = CommentSerializer
