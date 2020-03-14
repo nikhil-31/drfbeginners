@@ -1,11 +1,15 @@
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
+from rest_framework import generics
+from rest_framework import mixins
 from rest_framework.parsers import JSONParser
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.status import HTTP_201_CREATED, HTTP_400_BAD_REQUEST, HTTP_204_NO_CONTENT
 from rest_framework.views import APIView
 
 from .models import Post
+from .permissions import IsOwnerPermission
 from .serializers import PostSerializer
 
 
@@ -16,6 +20,26 @@ class PostView(APIView):
         queryset = Post.objects.all()
         serializer = PostSerializer(queryset, many=True)
         return Response(serializer.data)
+
+    def post(self, request, *args, **kwargs):
+        serializer = PostSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Post saved"}, status=HTTP_201_CREATED)
+        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
+
+    def put(self, request, pk, *args, **kwargs):
+        post = Post.objects.get(pk=pk)
+        serializer = PostSerializer(post, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk, *args, **kwargs):
+        post = Post.objects.get(pk=pk)
+        post.delete()
+        return Response(status=HTTP_204_NO_CONTENT)
 
 
 @csrf_exempt
@@ -56,3 +80,37 @@ def post_detail(request, pk):
     elif request.method == 'DELETE':
         post.delete()
         return HttpResponse(status=204)
+
+
+# Mixins
+class PostMixinListView(mixins.ListModelMixin,
+                        mixins.CreateModelMixin,
+                        generics.GenericAPIView):
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
+    permission_classes = AllowAny
+
+    def get(self, request, *args, **kwargs):
+        return self.list(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        return self.create(request, *args, **kwargs)
+
+
+# Generics
+class PostListView(generics.ListAPIView):
+    permission_classes = (IsAuthenticated,)
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
+
+
+class PostDetailView(generics.RetrieveAPIView):
+    permission_classes = (IsAuthenticated, IsOwnerPermission)
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
+
+
+class PostDestroyView(generics.DestroyAPIView):
+    permission_classes = (IsAuthenticated, IsOwnerPermission)
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
